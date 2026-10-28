@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node test/fallback.test.mjs && node test/jwt.test.mjs"
+    "test": "node test/fallback.test.mjs && node test/jwt.test.mjs && node test/salvar-os.test.mjs"
   },
   "keywords": [],
   "author": "",
