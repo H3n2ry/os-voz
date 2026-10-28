@@ -1,0 +1,3 @@
+# Copie para .dev.vars (nunca commitar o arquivo real)
+GROQ_API_KEY=gsk_...
+JWT_SECRET=uma_string_longa_e_aleatoria_minimo_32_chars
