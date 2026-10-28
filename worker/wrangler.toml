@@ -1,0 +1,32 @@
+name = "os-voz-api"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "os-voz-db"
+database_id = "0cc55063-1053-4f6c-97ca-565c316b4856"
+
+# Secrets (configure via: wrangler secret put NOME_DA_VARIAVEL)
+# GROQ_API_KEY
+# JWT_SECRET
+
+[vars]
+# Trava manual do modelo. Deixe vazio para o app escolher sozinho (recomendado).
+# Em emergência — preencher, `npx wrangler deploy`, e está resolvido em 1 minuto.
+GROQ_CHAT_MODEL = ""
+GROQ_TRANSCRIBE_MODEL = ""
+
+# Origens permitidas no CORS, separadas por vírgula. Vazio = libera qualquer
+# origem (comportamento histórico). Preencha com a URL do frontend na Vercel
+# para fechar o cerco, ex.:
+# ALLOWED_ORIGINS = "https://os-voz.vercel.app,http://localhost:5173"
+ALLOWED_ORIGINS = ""
+
+# Logs retidos no painel da Cloudflare — é onde aparece o aviso de troca de modelo.
+[observability]
+enabled = true
+
+# Verificação semanal dos modelos (segunda, 12h UTC / 9h de Brasília).
+[triggers]
+crons = ["0 12 * * 1"]
