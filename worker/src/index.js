@@ -272,7 +272,7 @@ async function handleCreateOS(request, env) {
   const payload = await getAuth(request, env)
   if (!payload) return err('Não autorizado', 401)
 
-  const body = await request.json()
+  const body = camposDaOS(await request.json())
   const id = crypto.randomUUID()
 
   // Congela o cabeçalho vigente dentro da própria OS. Sem isso o painel do
@@ -309,6 +309,22 @@ async function handleCreateOS(request, env) {
   const os = inserida.results?.[0]
     ?? await env.DB.prepare('SELECT * FROM ordens_servico WHERE id = ?').bind(id).first()
   return ok({ os: parseOS(os) })
+}
+
+// cliente, endereco, tipo_servico, descricao_servico e audio_transcricao são
+// NOT NULL na tabela. O app manda null quando a IA não acha o campo no relato
+// (ex.: técnico que nunca fala o endereço) e o INSERT inteiro falhava com 500 —
+// a OS simplesmente não era salva. Campo vazio vira "", nunca null.
+export function camposDaOS(body) {
+  const texto = (v) => (v == null ? '' : String(v))
+  return {
+    ...body,
+    cliente: texto(body?.cliente),
+    endereco: texto(body?.endereco),
+    tipo_servico: texto(body?.tipo_servico),
+    descricao_servico: texto(body?.descricao_servico),
+    audio_transcricao: texto(body?.audio_transcricao),
+  }
 }
 
 async function handleUpdateStatus(request, env, id) {

@@ -68,7 +68,8 @@ export default function NovaOS() {
 
   function valor(...keys) {
     for (const k of keys) if (osGerada?.valores?.[k]) return osGerada.valores[k]
-    return null
+    // "" e não null: as colunas são NOT NULL e o servidor recusava a OS inteira.
+    return ''
   }
 
   // Edição manual caso a IA tenha entendido algo errado
