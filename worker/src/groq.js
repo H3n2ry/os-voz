@@ -178,13 +178,65 @@ export async function groqChat(env, { messages, max_completion_tokens = 2048, re
   return { data: await res.json(), modelo }
 }
 
-export async function groqTranscribe(env, arquivo, { language = 'pt' } = {}) {
-  const { res, modelo, erro } = await comFallback(env, 'transcribe', (id) => {
+// Whisper fixo em português do Brasil. Só `language=pt` não basta: em áudio
+// curto, com ruído ou silêncio, o Whisper "alucina" frases de legenda em outros
+// idiomas ("Thank you for watching", "ご視聴ありがとうございました"...). Três
+// defesas: um prompt em pt-BR que ancora idioma e vocabulário, temperatura 0
+// (sem sorteio de tokens) e descarte dos trechos que o próprio Whisper marca
+// como "não é fala" ou que batem com alucinações conhecidas.
+export const PROMPT_TRANSCRICAO =
+  'Relato em português do Brasil de um técnico de campo sobre uma ordem de serviço: ' +
+  'cliente, endereço, serviço executado, materiais utilizados e observações.'
+
+const ALUCINACOES = [
+  /obrigad[oa] por assistir/i,
+  /legendas? (pela|por)/i,
+  /amara\.org/i,
+  /inscreva-se/i,
+  /thank(s| you) for watching/i,
+  /subtitles? by/i,
+  /please subscribe/i,
+  /ご視聴|字幕|감사합니다|谢谢观看|请不吝点赞/,
+]
+
+function eAlucinacao(seg) {
+  const texto = String(seg?.text ?? '').trim()
+  if (!texto) return true
+  if (ALUCINACOES.some((re) => re.test(texto))) return true
+  // Mesmo critério do Whisper original: alta chance de "sem fala" + baixa confiança.
+  if (seg.no_speech_prob > 0.6 && seg.avg_logprob < -1) return true
+  // Texto repetido em loop ("a a a a a...") — sinal clássico de alucinação.
+  if (seg.compression_ratio > 2.4) return true
+  return false
+}
+
+export function limparTranscricao(data) {
+  const segmentos = Array.isArray(data?.segments) ? data.segments : null
+  if (!segmentos) {
+    const texto = String(data?.text ?? '').trim()
+    return ALUCINACOES.some((re) => re.test(texto)) ? '' : texto
+  }
+  return segmentos
+    .filter((seg) => !eAlucinacao(seg))
+    .map((seg) => String(seg.text).trim())
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export async function groqTranscribe(env, arquivo) {
+  const { res, modelo, erro } = await comFallback(env, 'transcribe', (id, comOpcionais) => {
     const form = new FormData()
     form.append('file', arquivo, 'audio.webm')
     form.append('model', id)
-    form.append('language', language)
-    form.append('response_format', 'json')
+    form.append('language', 'pt') // fixo: o app é só pt-BR
+    form.append('temperature', '0')
+    if (comOpcionais) {
+      form.append('prompt', PROMPT_TRANSCRICAO)
+      form.append('response_format', 'verbose_json')
+    } else {
+      form.append('response_format', 'json')
+    }
     return fetch(`${API}/audio/transcriptions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${env.GROQ_API_KEY}` },
@@ -192,7 +244,8 @@ export async function groqTranscribe(env, arquivo, { language = 'pt' } = {}) {
     })
   })
   if (!res) throw new GroqError(erro)
-  return { data: await res.json(), modelo }
+  const data = await res.json()
+  return { data, texto: limparTranscricao(data), modelo }
 }
 
 // Extrai o objeto JSON da resposta mesmo se vier com cerca de markdown ou texto

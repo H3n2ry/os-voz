@@ -360,8 +360,9 @@ async function handleTranscribe(request, env) {
   if (!audio) return err('Arquivo de áudio não enviado')
 
   // O modelo é resolvido em groq.js — se o atual for desligado, troca sozinho.
-  const { data, modelo } = await groqTranscribe(env, audio, { language: 'pt' })
-  return ok({ transcricao: data.text, modelo })
+  const { texto, modelo } = await groqTranscribe(env, audio)
+  if (!texto) return err('Não deu para entender o áudio. Grave de novo falando mais perto do microfone.', 422)
+  return ok({ transcricao: texto, modelo })
 }
 
 async function handleGerarOS(request, env) {
